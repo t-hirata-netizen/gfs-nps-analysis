@@ -34,7 +34,7 @@ groups = {
 }
 picked = st.multiselect("表示する項目", list(groups), default=["アンケート", "アクションリスト"])
 cols = ["期間"] + [c for g in picked for c in groups[g]]
-st.dataframe(show[cols], use_container_width=True, hide_index=True, height=min(38 * (len(show) + 1), 560),
+st.dataframe(show[cols], width="stretch", hide_index=True, height=min(38 * (len(show) + 1), 560),
              column_config={"期間": st.column_config.TextColumn(pinned=True)})
 
 st.divider()
@@ -54,7 +54,7 @@ else:
     s = m.nps_summary(rows)
     nps_text = "-" if s["NPS"] is None else f"{s['NPS']:.1f}"
     st.caption(f"{sel}：アンケート {len(rows):,} 件／NPS {nps_text}（有効回答 n={s['有効回答数']}）")
-    st.dataframe(detail, use_container_width=True, hide_index=True, height=420,
+    st.dataframe(detail, width="stretch", hide_index=True, height=420,
                  column_config={"回答日時": st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm")})
     st.caption("会員ID・自由記述を含みます。社外に共有しないでください。")
 

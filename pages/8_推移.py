@@ -28,7 +28,7 @@ fig.add_scatter(x=cum["期間ラベル"], y=cum["累計NPS"], name="累計NPS", 
 fig.update_layout(title="NPS の推移（灰色の棒は有効回答30件未満）", height=380, margin=dict(t=50, b=10),
                   legend=dict(orientation="h", y=-0.15), yaxis_title="NPS")
 fig.update_xaxes(type="category", categoryorder="array", categoryarray=cum["期間ラベル"])
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 c1, c2 = st.columns(2)
 with c1:
@@ -37,12 +37,12 @@ with c1:
                   hover_data=["変化評価n"])
     fig.update_layout(height=320, margin=dict(t=50, b=10), yaxis_range=[1, 5], xaxis_title=None)
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 with c2:
     fig = px.bar(t, x="期間ラベル", y="回答数", title="回答数")
     fig.update_layout(height=320, margin=dict(t=50, b=10), xaxis_title=None)
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 with st.expander("表で見る"):
     ui.show_table(t.merge(cum.drop(columns="期間ラベル"), on="期間", how="left").drop(columns="期間"))
 
@@ -60,12 +60,12 @@ with c1:
                   hover_data=["回答数"])
     fig.update_layout(height=320, margin=dict(t=50, b=10), xaxis_title=None, yaxis_range=[0, len(tasks)])
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 with c2:
     fig = px.bar(at, x="期間ラベル", y="回答数", title="アクションリストの回答数")
     fig.update_layout(height=320, margin=dict(t=50, b=10), xaxis_title=None)
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 cols = [t_["label"] + "（%）" for t_ in tasks]
 long = at.melt(id_vars="期間ラベル", value_vars=cols, var_name="タスク", value_name="達成率（%）")
 long["タスク"] = long["タスク"].str.replace("（%）", "", regex=False)
@@ -73,6 +73,6 @@ fig = px.line(long, x="期間ラベル", y="達成率（%）", color="タスク"
 fig.update_layout(height=420, margin=dict(t=50, b=10), xaxis_title=None, yaxis_range=[0, 100],
                   legend=dict(orientation="h", y=-0.2))
 fig.update_xaxes(type="category")
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 with st.expander("表で見る"):
     ui.show_table(at.drop(columns="期間"))

@@ -38,7 +38,7 @@ fig = px.bar(plot, x="グループ", y="NPS", text=plot.apply(lambda r: f"{r['NP
              title=f"{g_name}別の NPS")
 fig.update_xaxes(type="category")
 fig.update_layout(height=360, margin=dict(t=50, b=10), xaxis_title=None)
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 ui.show_table(table)
 small = table[(table["注意"] != "") & (table["NPS有効回答数"] > 0)]
 if not small.empty:
@@ -62,8 +62,8 @@ if r_col == c_col:
 else:
     counts, pct = m.crosstab(data, r_col, c_col, r_order, c_order)
     st.markdown("**件数**")
-    st.dataframe(counts, use_container_width=True)
+    st.dataframe(counts, width="stretch")
     st.markdown("**行％（各行の合計を100%とした割合）**")
-    st.dataframe(pct, use_container_width=True)
+    st.dataframe(pct, width="stretch")
     st.caption(f"比較対象：行 {len(r_order)} 区分 × 列 {len(c_order)} 区分。"
                "「未回答」「設問なし」も区分として表示しており、0点や変化なしとしては数えていません。")

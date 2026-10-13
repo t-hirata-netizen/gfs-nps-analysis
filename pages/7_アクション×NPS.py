@@ -46,14 +46,14 @@ with c1:
                  text=plot.apply(lambda r: f"{r['NPS']:.1f}<br>n={r['NPS有効回答数']}", axis=1))
     fig.update_layout(height=340, margin=dict(t=50, b=10), xaxis_title=None)
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 with c2:
     p2 = pt[pt["変化評価の平均"].notna()]
     fig = px.bar(p2, x="達成項目数", y="変化評価の平均", title="達成項目数別の 変化評価（1〜5）の平均",
                  text=p2["変化評価の平均"].map(lambda v: f"{v:.2f}"))
     fig.update_layout(height=340, margin=dict(t=50, b=10), xaxis_title=None, yaxis_range=[1, 5])
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 ui.show_table(pt)
 
 st.subheader("タスク別：達成した人・していない人の比較")

@@ -52,7 +52,7 @@ edit = pd.DataFrame({
 }).reset_index(drop=True)
 
 edited = st.data_editor(
-    edit, hide_index=True, use_container_width=True, height=520,
+    edit, hide_index=True, width="stretch", height=520,
     disabled=["回答ID", "回答日時", "変化評価", "NPS区分", "変化理由", "状態"],
     column_config={"変化理由": st.column_config.TextColumn(width="large"),
                    **{labels[c]: st.column_config.CheckboxColumn() for c in m.CATEGORY_COLS}},
