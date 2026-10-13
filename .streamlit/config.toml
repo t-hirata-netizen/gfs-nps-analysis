@@ -1,0 +1,11 @@
+# 個人情報を外部へ送らないための設定
+[browser]
+gatherUsageStats = false
+
+[server]
+address = "localhost"
+headless = true
+
+[client]
+# 「Deploy」ボタンなど外部公開につながるメニューを出さない
+toolbarMode = "minimal"

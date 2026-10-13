@@ -1,0 +1,16 @@
+# 実データ・DB・出力は Git に含めない
+data/
+output/
+*.db
+*.sqlite
+*.sqlite3
+# サンプル以外の Excel / CSV は含めない
+*.xlsx
+*.xls
+*.csv
+!sample_data/*.xlsx
+!sample_data/*.csv
+.venv/
+__pycache__/
+.pytest_cache/
+.DS_Store

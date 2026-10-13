@@ -1,0 +1,47 @@
+# 60日アンケート Excel の列名 → DB 列名の対応表
+# 元ファイルの列名が変わったら、右側（Excel の列名）だけ書き換えてください。
+source_type: survey60
+sheet_name: "60日 全回答"
+
+columns:
+  member_id: 会員ID
+  answered_at: 回答日時
+  gfs_satisfaction: GFS満足度
+  support_satisfaction: サポート満足度
+  nps: "NPS(0-10)"
+  nps_category_original: NPS区分   # 整合チェックにのみ使用（区分は 0〜10 から再計算）
+  change_score: 変化を感じる
+  admission_good: 入学してよかった
+  re_enroll: 再入学したい
+  reason_gfs: GFS理由
+  reason_support: サポ理由
+  reason_admission: 入学理由
+  reason_recommend: 勧める理由
+  reason_reenroll: 再入学理由
+  reason_change: 変化理由
+  worries: 悩み・モヤモヤ
+
+# 個人情報のため DB に取り込まない列（存在しても無視）
+ignored_columns: [氏名]
+
+# 数値の有効範囲（範囲外・数値以外は NULL にして不正データとして記録）
+ranges:
+  gfs_satisfaction: [1, 5]
+  support_satisfaction: [1, 5]
+  nps: [0, 10]
+  change_score: [1, 5]
+
+# サポート満足度で「利用していない」を表す値（満足度の平均には含めない）
+support_not_used_values: [利用していない]
+
+# 元ファイルの NPS区分 の表記 → 本ツールの区分名
+nps_category_original_values:
+  推奨: 推奨者
+  中立: 中立者
+  批判: 批判者
+
+# 設問が追加された日時。空（null）なら「ファイル内で最初に値が入った回答日時」で自動判定。
+# それより前の空欄は「未回答」ではなく「設問なし」として扱う。
+question_start:
+  nps: null
+  change_score: null

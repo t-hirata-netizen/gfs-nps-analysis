@@ -1,0 +1,72 @@
+# アクションリスト（フォーム回答 CSV）の列対応
+# 「進捗」という同じ列名が複数あるため、タスク列は「左から何番目か（0始まり）」で指定し、
+# 念のため見出し（header）も照合します。フォームの設問を変えたらここを書き換えてください。
+source_type: action_list
+columns:
+  response_id: 回答ID
+  answered_at: 回答日時
+  external_id: 回答者ID        # Liny の登録ID（9桁）。会員IDとは id_link で対応付ける
+  respondent_name: 回答者名    # 【退会済】などの状態ラベルの抽出だけに使い、氏名は保存しない
+
+tasks:
+  - key: orientation
+    label: オリエンテーション修了
+    column_index: 4
+    header: オリエンテーションは修了しましたか？
+    done_values: [修了した]
+    pending_values: [まだ]
+  - key: account_decided
+    label: メイン証券口座の決定
+    column_index: 5
+    header: メインで取引する証券口座を決めましたか？
+    done_values: [決めた]
+    pending_values: [まだ迷っている]
+  - key: account_opened
+    label: 口座開設
+    column_index: 6
+    header: 進捗
+    done_values: [開設済み]
+    pending_values: [開設方法がわからない]
+  - key: deposit
+    label: 証券口座への入金
+    column_index: 7
+    header: 進捗
+    done_values: [入金済み]
+    pending_values: [入金方法がわからない]
+  - key: index_setup
+    label: インデックス積立設定（コア）
+    column_index: 8
+    header: 進捗
+    done_values: [設定済み]
+    pending_values: [設定方法がわからない]
+  - key: buy_known
+    label: 知っている銘柄を少額購入
+    column_index: 9
+    header: 進捗
+    done_values: [購入済み]
+    pending_values: [買えずに困っている]
+  - key: buy_technical
+    label: テクニカル分析で銘柄を探して購入
+    column_index: 10
+    header: 進捗
+    done_values: [購入済み]
+    pending_values: [これから]
+  - key: sell_technical
+    label: テクニカル分析どおりに売却
+    column_index: 11
+    header: 進捗
+    done_values: [売却済み]
+    pending_values: [これから]
+  - key: buy_fundamental
+    label: ファンダメンタルズ分析で銘柄を探して購入
+    column_index: 12
+    header: 進捗
+    done_values: [購入済み]
+    pending_values: [これから]
+
+# 達成項目数のグループ分け（下限, 上限）
+progress_bins:
+  - [0, 3]
+  - [4, 5]
+  - [6, 7]
+  - [8, 9]

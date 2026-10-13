@@ -1,0 +1,9 @@
+# 【仮】診断アプリ結果の列対応。実際の CSV が届いたら右側を書き換えてください。
+source_type: diagnosis
+file_format: csv
+encoding: utf-8-sig
+columns:
+  member_id: 会員ID          # 仮
+  diagnosis_type: 診断種類   # 仮
+  taken_at: 実施日時         # 仮
+  result: 結果               # 仮

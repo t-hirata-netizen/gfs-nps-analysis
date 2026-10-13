@@ -1,0 +1,6 @@
+# Liny 登録ID ↔ GFS 会員ID の対応表（Liny の友だち情報エクスポート CSV）
+# この2列だけを読み込みます。メール・電話番号などの列は読み込みません。
+source_type: id_link
+columns:
+  external_id: 登録ID
+  member_id: 友だち情報_2393157   # Liny の友だち情報のうち「会員ID」の項目
