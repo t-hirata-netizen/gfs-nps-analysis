@@ -12,7 +12,7 @@ Finder で **`GFS分析ツールを起動.command` をダブルクリック**す
 
 ```bash
 cd ~/my-project/gfs-nps-analysis
-.venv/bin/streamlit run app.py
+.venv/bin/streamlit run app.py --server.address localhost
 ```
 
 ブラウザで http://localhost:8501 が開きます。実データの DB は `data/gfs_analysis.db` に作られます。
@@ -21,7 +21,7 @@ cd ~/my-project/gfs-nps-analysis
 
 ```bash
 .venv/bin/python scripts/make_sample_data.py
-GFS_DB_PATH=data/sample.db .venv/bin/streamlit run app.py
+GFS_DB_PATH=data/sample.db .venv/bin/streamlit run app.py --server.address localhost --server.address localhost
 ```
 
 ## 毎日の作業
@@ -86,6 +86,39 @@ scripts/              サンプルデータ生成
 sample_data/          匿名サンプル（Git 管理対象）
 data/, output/        実データ・DB・出力（Git 管理外）
 tests/                自動テスト
+```
+
+## チーム共有ダッシュボード（パスワード付き）
+
+公開URL: https://t-hirata-netizen.github.io/gfs-nps-dashboard/
+
+- 集計値だけを AES-GCM で暗号化して 1 枚の HTML にしたもの（会員ID・氏名・自由記述は含まない）。
+- パスワードは `data/dashboard_password.txt`（Git 管理外）。変えるときはこのファイルを書き換えて書き出し直す。
+
+更新手順（データを取り込んだあと）:
+
+```bash
+.venv/bin/python scripts/build_dashboard.py
+cp site/index.html ../gfs-nps-dashboard-site/
+cd ../gfs-nps-dashboard-site && git add -A && git commit -m "ダッシュボード更新" && git push
+```
+
+## クラウド版（Google Cloud Run・会社の Google アカウントでログイン）
+
+チームの各自がブラウザから取込・分類・閲覧できるようにする構成です。
+
+- 認証：Cloud Run の IAP で、会社ドメインの Google アカウントだけがログインできる
+- データ：SQLite を Cloud Storage（非公開・世代管理あり）に保存。起動時に復元し、書き込みのたびに保存
+- 同時書き込みを避けるため、Cloud Run の最大インスタンス数は 1
+- 取込履歴・分類の保存には、ログインした人のメールアドレスを記録
+- クラウドでは「パスを入力する」取込は使えない（ファイルのアップロードのみ）
+
+手順（`deploy/config.example.sh` を `deploy/config.sh` にコピーして値を入れてから）:
+
+```bash
+deploy/setup.sh       # 初回：API 有効化・バケット・サービスアカウント
+deploy/upload_db.sh   # 初回：手元のデータを載せる（個人情報を含むので社内承認後）
+deploy/deploy.sh      # 初回・更新のたび：ビルドして公開
 ```
 
 ## データの扱い

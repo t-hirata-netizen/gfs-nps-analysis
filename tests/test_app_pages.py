@@ -37,10 +37,11 @@ def test_page_runs_without_data(tmp_path, monkeypatch, page):
 
 def test_filters_narrow_results(sample_db):
     at = AppTest.from_file(str(ROOT / "pages/3_分布.py"), default_timeout=30).run()
-    before = at.sidebar.caption[0].value
+    count = lambda: next(c.value for c in at.sidebar.caption if c.value.startswith("対象"))  # noqa: E731
+    before = count()
     at.sidebar.multiselect[1].set_value(["推奨者"]).run()
     assert not at.exception
-    after = at.sidebar.caption[0].value
+    after = count()
     assert before != after
 
 

@@ -6,4 +6,4 @@ if [ ! -x .venv/bin/streamlit ]; then
   python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt
 fi
 ( sleep 3 && open http://localhost:8501 ) &
-.venv/bin/streamlit run app.py --server.port 8501
+.venv/bin/streamlit run app.py --server.port 8501 --server.address localhost

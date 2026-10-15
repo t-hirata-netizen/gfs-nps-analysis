@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import pandas as pd
 
-from . import metrics
+from . import cloud, metrics
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "gfs_analysis.db"
@@ -28,6 +28,8 @@ def db_path() -> Path:
 
 def connect(path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
     path = Path(path) if path else db_path()
+    if cloud.enabled() and str(path) != ":memory:":
+        cloud.store(path).ensure_restored()
     if str(path) != ":memory:":
         path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path))
@@ -49,9 +51,21 @@ def _migrate(conn: sqlite3.Connection):
         with conn:
             conn.execute("ALTER TABLE change_classifications RENAME TO _old_change_classifications")
             conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-            conn.execute("INSERT INTO change_classifications SELECT * FROM _old_change_classifications")
+            cols = "response_id, knowledge, action, judgment, other, unclassifiable, source, updated_at"
+            conn.execute(f"INSERT INTO change_classifications ({cols}) SELECT {cols} FROM _old_change_classifications")
             conn.execute("DROP TABLE _old_change_classifications")
         conn.execute("PRAGMA foreign_keys = ON")
+    # 操作した人の記録欄（後から追加した列）
+    for table, col in [("import_batches", "imported_by"), ("change_classifications", "updated_by")]:
+        if col not in {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}:
+            with conn:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} TEXT")
+
+
+def sync(conn: sqlite3.Connection) -> None:
+    """書き込みの後に呼ぶ。クラウドではデータベースを Cloud Storage に保存する（ローカルでは何もしない）"""
+    if cloud.enabled():
+        cloud.store(db_path()).save(conn)
 
 
 def load_responses(conn: sqlite3.Connection) -> pd.DataFrame:

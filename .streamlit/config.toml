@@ -3,8 +3,8 @@
 gatherUsageStats = false
 
 [server]
-address = "localhost"
 headless = true
+# ローカルでは起動コマンドで --server.address=localhost を付ける（社内LANに公開しないため）
 
 [client]
 # 「Deploy」ボタンなど外部公開につながるメニューを出さない

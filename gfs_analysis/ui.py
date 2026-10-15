@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 import streamlit.components.v1 as components
 
-from . import db
+import getpass
+
+from . import cloud, db
 from . import metrics as m
 from . import quality as q
 
@@ -40,6 +42,42 @@ def setup(title: str):
     st.title(title)
 
 
+def current_user() -> Optional[str]:
+    """操作している人。クラウドではログインした人のメールアドレス"""
+    # Streamlit Community Cloud の非公開アプリ：ログインした閲覧者のメールアドレス
+    try:
+        email = st.user.get("email") if hasattr(st.user, "get") else getattr(st.user, "email", None)
+        if email and "@" in str(email) and not str(email).endswith("@example.com"):
+            return str(email)
+    except Exception:
+        pass
+    # Google Cloud Run + IAP
+    try:
+        v = st.context.headers.get("X-Goog-Authenticated-User-Email")
+    except Exception:
+        v = None
+    if v:
+        return v.split(":", 1)[-1]
+    if cloud.enabled():
+        return None
+    try:
+        return f"ローカル（{getpass.getuser()}）"
+    except Exception:
+        return "ローカル"
+
+
+def save_changes(conn) -> bool:
+    """書き込み後の保存（クラウドでは Cloud Storage へ）。失敗したら画面に出して False"""
+    try:
+        db.sync(conn)
+        return True
+    except cloud.ConflictError as e:
+        st.error(str(e))
+    except Exception as e:  # 通信エラーなど
+        st.error(f"データの保存に失敗しました。時間をおいて再読み込みしてください。（{e.__class__.__name__}）")
+    return False
+
+
 def load() -> Tuple[object, pd.DataFrame]:
     conn = db.connect()
     return conn, db.load_responses(conn)
@@ -66,6 +104,9 @@ def _save(key: str):
 def sidebar_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict, float]:
     """重複の扱い → 期間・変化評価・NPS区分 の順に絞り込む"""
     sb = st.sidebar
+    user = current_user()
+    if user:
+        sb.caption(f"ログイン中：{user}")
     sb.header("絞り込み")
     _keep("f_threshold", q.DEFAULT_NEAR_DUP_SECONDS)
     threshold = sb.number_input(

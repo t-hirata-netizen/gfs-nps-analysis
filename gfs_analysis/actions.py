@@ -61,12 +61,12 @@ def _check_not_imported(conn, source_type: str, sha: str):
         raise DuplicateImportError(f"同じ内容のファイルは取込済みです（{hit[0]}、{hit[1]}）")
 
 
-def _new_batch(conn, source_type, file_name, sha, row_count, ts) -> int:
+def _new_batch(conn, source_type, file_name, sha, row_count, ts, user=None) -> int:
     cur = conn.execute(
         """INSERT INTO import_batches (source_type, file_name, file_sha256, sheet_name,
-               row_count, inserted_count, skipped_count, imported_at)
-           VALUES (?, ?, ?, NULL, ?, 0, 0, ?)""",
-        (source_type, file_name, sha, row_count, ts))
+               row_count, inserted_count, skipped_count, imported_at, imported_by)
+           VALUES (?, ?, ?, NULL, ?, 0, 0, ?, ?)""",
+        (source_type, file_name, sha, row_count, ts, user))
     return cur.lastrowid
 
 
@@ -90,7 +90,8 @@ def read_link_frame(data: bytes, mapping: Dict) -> pd.DataFrame:
 
 
 def import_id_links(conn: sqlite3.Connection, data: bytes, file_name: str,
-                    mapping: Optional[Dict] = None, now: Optional[datetime] = None) -> Dict:
+                    mapping: Optional[Dict] = None, now: Optional[datetime] = None,
+                    user: Optional[str] = None) -> Dict:
     mapping = mapping or load_yaml(LINK_MAPPING_PATH)
     sha = file_sha256(data)
     _check_not_imported(conn, mapping["source_type"], sha)
@@ -108,7 +109,7 @@ def import_id_links(conn: sqlite3.Connection, data: bytes, file_name: str,
     changed = [(e, existing[e], mm) for e, mm in zip(good["ext"], good["mem"])
                if e in existing and existing[e] != mm]
     with conn:
-        batch_id = _new_batch(conn, mapping["source_type"], file_name, sha, len(df), ts)
+        batch_id = _new_batch(conn, mapping["source_type"], file_name, sha, len(df), ts, user)
         conn.executemany(
             """INSERT INTO id_links (external_id, member_id, batch_id, updated_at) VALUES (?, ?, ?, ?)
                ON CONFLICT(external_id) DO UPDATE SET member_id=excluded.member_id,
@@ -156,7 +157,8 @@ def read_action_frame(data: bytes, mapping: Dict) -> pd.DataFrame:
 
 
 def import_actions(conn: sqlite3.Connection, data: bytes, file_name: str,
-                   mapping: Optional[Dict] = None, now: Optional[datetime] = None) -> Dict:
+                   mapping: Optional[Dict] = None, now: Optional[datetime] = None,
+                   user: Optional[str] = None) -> Dict:
     mapping = mapping or load_action_mapping()
     sha = file_sha256(data)
     _check_not_imported(conn, mapping["source_type"], sha)
@@ -167,7 +169,7 @@ def import_actions(conn: sqlite3.Connection, data: bytes, file_name: str,
     inserted = existing = invalid = 0
     issues = []
     with conn:
-        batch_id = _new_batch(conn, mapping["source_type"], file_name, sha, len(body), ts)
+        batch_id = _new_batch(conn, mapping["source_type"], file_name, sha, len(body), ts, user)
         for idx, row in body.iterrows():
             row_no = int(idx) + 2
             rid = normalize_member_id(row[pos["response_id"]])

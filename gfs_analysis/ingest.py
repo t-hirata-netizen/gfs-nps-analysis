@@ -149,7 +149,8 @@ def _question_present(times: List[Optional[str]], values: List[Optional[object]]
 
 def import_survey_bytes(conn: sqlite3.Connection, data: bytes, file_name: str,
                         mapping: Optional[Dict] = None,
-                        now: Optional[datetime] = None) -> ImportResult:
+                        now: Optional[datetime] = None,
+                        user: Optional[str] = None) -> ImportResult:
     mapping = mapping or load_mapping()
     source_type = mapping["source_type"]
     sha = file_sha256(data)
@@ -256,9 +257,9 @@ def import_survey_bytes(conn: sqlite3.Connection, data: bytes, file_name: str,
     with conn:
         cur = conn.execute(
             """INSERT INTO import_batches (source_type, file_name, file_sha256, sheet_name,
-                   row_count, inserted_count, skipped_count, imported_at)
-               VALUES (?, ?, ?, ?, ?, 0, 0, ?)""",
-            (source_type, file_name, sha, mapping["sheet_name"], len(raw), imported_at),
+                   row_count, inserted_count, skipped_count, imported_at, imported_by)
+               VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)""",
+            (source_type, file_name, sha, mapping["sheet_name"], len(raw), imported_at, user),
         )
         batch_id = cur.lastrowid
         for r in unique_records:
@@ -297,6 +298,6 @@ def import_survey_bytes(conn: sqlite3.Connection, data: bytes, file_name: str,
 
 
 def import_survey_file(conn: sqlite3.Connection, path: Union[str, Path],
-                       mapping: Optional[Dict] = None) -> ImportResult:
+                       mapping: Optional[Dict] = None, user: Optional[str] = None) -> ImportResult:
     path = Path(path)
-    return import_survey_bytes(conn, path.read_bytes(), path.name, mapping)
+    return import_survey_bytes(conn, path.read_bytes(), path.name, mapping, user=user)

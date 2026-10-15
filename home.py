@@ -3,13 +3,16 @@ import streamlit as st
 
 from datetime import datetime
 
-from gfs_analysis import db, importer, ui
+from gfs_analysis import cloud, db, importer, ui
 from gfs_analysis import metrics as m
 
 ui.setup("GFS 自己変容・NPS 分析ツール")
 conn, df = ui.load()
 
-st.caption(f"データベース: `{db.db_path()}`")
+if cloud.enabled():
+    st.caption("データの保存先：会社の Google ドライブ")
+else:
+    st.caption(f"データベース: `{db.db_path()}`")
 
 st.subheader("最終取込日")
 last = importer.last_imports(conn)
@@ -62,5 +65,5 @@ st.markdown("""
 - **未回答**は 0 点や「変化なし」として数えません。設問が追加される前の回答は **設問なし** として区別します。
 - 有効回答が **30 件未満**の集計には「少数データ」の注意を表示します。
 - 相関（同時に見られる傾向）を示すだけで、**因果関係は示しません**。
-- 個人情報を外部に送信する機能はありません（氏名列は取り込みません）。
+- 氏名列は取り込みません。ローカル版はこのPCの中だけで動き、クラウド版はデータを会社の Google ドライブに保存します。
 """)

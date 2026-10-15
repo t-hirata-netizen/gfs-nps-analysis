@@ -61,12 +61,12 @@ def _now(now: Optional[datetime]) -> str:
 
 _UPSERT = """
 INSERT INTO change_classifications
-    (response_id, knowledge, action, judgment, other, unclassifiable, source, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (response_id, knowledge, action, judgment, other, unclassifiable, source, updated_at, updated_by)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(response_id) DO UPDATE SET
     knowledge=excluded.knowledge, action=excluded.action, judgment=excluded.judgment,
     other=excluded.other, unclassifiable=excluded.unclassifiable,
-    source=excluded.source, updated_at=excluded.updated_at
+    source=excluded.source, updated_at=excluded.updated_at, updated_by=excluded.updated_by
 """
 
 
@@ -87,13 +87,14 @@ def auto_classify(conn: sqlite3.Connection, keywords: Optional[Dict] = None,
             if source in ("manual", "ai"):
                 continue
             f = suggest(text, keywords)
-            conn.execute(_UPSERT, (rid, *[f[c] for c in CATEGORY_COLS], "auto", ts))
+            conn.execute(_UPSERT, (rid, *[f[c] for c in CATEGORY_COLS], "auto", ts, None))
             n += 1
     return n
 
 
 def save_manual(conn: sqlite3.Connection, records: Iterable[Dict],
-                now: Optional[datetime] = None, source: str = "manual") -> int:
+                now: Optional[datetime] = None, source: str = "manual",
+                user: Optional[str] = None) -> int:
     """人が確認・修正した分類を保存する。1件でも不正があれば何も保存しない。
     source="ai" は AI が見直した分類（人の最終確認待ち）として保存する。"""
     if source not in ("manual", "ai"):
@@ -110,7 +111,7 @@ def save_manual(conn: sqlite3.Connection, records: Iterable[Dict],
     with conn:
         for r in records:
             conn.execute(_UPSERT, (int(r["response_id"]),
-                                   *[1 if r.get(c) else 0 for c in CATEGORY_COLS], source, ts))
+                                   *[1 if r.get(c) else 0 for c in CATEGORY_COLS], source, ts, user))
     return len(records)
 
 

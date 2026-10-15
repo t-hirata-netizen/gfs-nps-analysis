@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS import_batches (
     inserted_count INTEGER NOT NULL,       -- 新規に保存した行数
     skipped_count  INTEGER NOT NULL,       -- 既存・重複・不正で保存しなかった行数
     imported_at    TEXT NOT NULL,
+    imported_by    TEXT,                  -- 取り込んだ人（クラウドではログイン中のメールアドレス）
     UNIQUE (source_type, file_sha256)
 );
 
@@ -70,7 +71,8 @@ CREATE TABLE IF NOT EXISTS change_classifications (
     other          INTEGER NOT NULL DEFAULT 0,
     unclassifiable INTEGER NOT NULL DEFAULT 0,
     source         TEXT NOT NULL CHECK (source IN ('auto', 'ai', 'manual')),
-    updated_at     TEXT NOT NULL
+    updated_at     TEXT NOT NULL,
+    updated_by     TEXT                   -- 最後に分類を保存した人
 );
 
 -- ===== アクションリスト =====

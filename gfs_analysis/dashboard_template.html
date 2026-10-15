@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ja" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="google" content="notranslate">
+<title>GFS 分析ダッシュボード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Shippori+Mincho:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+/* 1カラムの報告ページ：見出しと結論 → 主要指標 → 推移 → 障壁 → 段階別 → 入金 → 分類 → 注記 */
+:root {
+  --bg: #f6f7f5; --panel: #ffffff; --fg: #1d2421; --muted: #5d6963; --line: #dde2de;
+  --grid: #e9ece9; --axis: #9aa59f; --bar: #a9b4ae; --bar-soft: #d5dcd8;
+  --accent: #1f6f5c; --critical: #b5452f; --critical-soft: #f3dcd5;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --font-display: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141917; --panel: #1b2220; --fg: #e6ebe8; --muted: #9caaa3; --line: #2c3532;
+  --grid: #252d2a; --axis: #5f6c66; --bar: #6b7872; --bar-soft: #39433f;
+  --accent: #5cc2a5; --critical: #e88a72; --critical-soft: #4a2a23; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141917; --panel: #1b2220; --fg: #e6ebe8; --muted: #9caaa3; --line: #2c3532;
+  --grid: #252d2a; --axis: #5f6c66; --bar: #6b7872; --bar-soft: #39433f;
+  --accent: #5cc2a5; --critical: #e88a72; --critical-soft: #4a2a23; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 68rem; margin-inline: auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 40px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-family: var(--font-display); font-weight: 500; font-size: 2rem; line-height: 1.25; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+h3 { font-size: .95rem; font-weight: 500; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: .82rem; }
+.num { font-variant-numeric: tabular-nums; }
+.head { display: grid; gap: 12px; }
+.lead { max-width: 66ch; }
+.eyebrow { font-size: .78rem; letter-spacing: .08em; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.tile-label { font-size: .78rem; color: var(--muted); letter-spacing: .02em; }
+.tile-value { font-family: var(--font-display); font-size: 1.9rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.tile-note { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.section { display: grid; gap: 14px; }
+.section > p { color: var(--muted); max-width: 70ch; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 8px; min-width: 0; align-content: start; }
+.chart { position: relative; min-height: 240px; }
+.chart svg { display: block; overflow: visible; }
+.chart text { font-family: var(--font-body); }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 6px 10px; font-size: .8rem; white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+.tip .k { color: var(--muted); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.r { text-align: right; }
+td:nth-child(2) { min-width: 11rem; }
+tr.hot td:first-child { box-shadow: inset 3px 0 0 var(--critical); }
+tr.hot td { background: color-mix(in srgb, var(--critical-soft) 45%, transparent); }
+.bar { display: flex; align-items: center; gap: 8px; min-width: 9rem; }
+.track { flex: 1; height: 8px; border-radius: 999px; background: var(--grid); overflow: hidden; }
+.fill { height: 100%; border-radius: 999px; background: var(--bar); }
+tr.hot .fill { background: var(--critical); }
+.bar-val { width: 3.4rem; text-align: right; }
+.notes { border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 6px; font-size: .82rem; color: var(--muted); }
+.notes ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+/* パスワード画面 */
+.gate { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.gate form { width: min(100%, 24rem); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 28px; display: grid; gap: 14px; }
+.gate label { font-size: .85rem; color: var(--muted); }
+.gate input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); width: 100%; }
+.gate input:focus-visible, .gate button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gate button { font: inherit; font-weight: 500; padding: 10px 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); cursor: pointer; }
+.gate button[disabled] { opacity: .6; cursor: progress; }
+.err { color: var(--critical); font-size: .85rem; min-height: 1.3em; }
+</style>
+</head>
+<body>
+<div class="gate" id="gate">
+  <form id="gate-form" autocomplete="off">
+    <h1>GFS 分析ダッシュボード</h1>
+    <p class="muted small">チーム向けの集計ページです。共有されたパスワードを入力してください。</p>
+    <label for="pw">パスワード</label>
+    <input id="pw" type="password" required autofocus>
+    <button id="pw-btn" type="submit">表示する</button>
+    <p class="err" id="pw-err" role="alert"></p>
+  </form>
+</div>
+<main class="wrap" id="app" hidden></main>
+
+<script>
+const ENC = /*__ENCRYPTED__*/null;
+
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function unlock(pw) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: b64(ENC.salt), iterations: ENC.iter, hash: 'SHA-256'},
+    base, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({name: 'AES-GCM', iv: b64(ENC.iv)}, key, b64(ENC.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+document.getElementById('gate-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('pw-btn'), err = document.getElementById('pw-err');
+  btn.disabled = true; btn.textContent = '確認中…'; err.textContent = '';
+  if (!(window.crypto && crypto.subtle)) {
+    err.textContent = 'このブラウザ・開き方では表示できません。https:// で始まる URL を、Chrome・Edge・Safari などで開いてください。';
+    btn.disabled = false; btn.textContent = '表示する';
+    return;
+  }
+  try {
+    const data = await unlock(document.getElementById('pw').value);
+    try { sessionStorage.setItem('gfs-dash-pw', document.getElementById('pw').value); } catch (_) {}
+    show(data);
+  } catch (_) {
+    err.textContent = 'パスワードが違います。';
+  } finally { btn.disabled = false; btn.textContent = '表示する'; }
+});
+(async () => {
+  let saved = null;
+  try { saved = sessionStorage.getItem('gfs-dash-pw'); } catch (_) {}
+  if (saved) { try { show(await unlock(saved)); } catch (_) {} }
+})();
+
+// ---------- 表示 ----------
+const f1 = d3.format('.1f'), f2 = d3.format('.2f'), pct = d3.format('.1%'), cnt = d3.format(',');
+const nps = v => v == null ? '—' : f1(v);
+const ymd = s => s.replace(/-/g, '/');
+const wk = s => { const d = new Date(s + 'T00:00:00Z'); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}週`; };
+const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'class') e.className = v; else e.setAttribute(k, v); } kids.forEach(k => e.append(k)); return e; };
+
+function show(D) {
+  document.getElementById('gate').hidden = true;
+  const app = document.getElementById('app');
+  app.hidden = false;
+  app.replaceChildren();
+  const K = D.kpi;
+  const mostStuck = D.tasks.length ? D.tasks.reduce((a, b) => b.stuck_n > a.stuck_n ? b : a) : null;
+  const solidStages = D.stages.filter(s => s.nps_n >= 30 && s.nps != null);
+  const lowStage = solidStages.length ? solidStages.reduce((a, b) => b.nps < a.nps ? b : a) : null;
+
+  const lead = `60日アンケート（${ymd(K.period_start)}〜${ymd(K.period_end)}）の NPS は ${nps(K.nps)}。`
+    + (mostStuck ? `アクションリストで止まっている生徒が最も多いのは「${mostStuck.task}」（${cnt(mostStuck.stuck_n)}人）。` : '')
+    + (lowStage ? `NPS が最も低いのは「${lowStage.stage}」で止まっている生徒（${nps(lowStage.nps)}）です。` : '');
+  app.append(el('header', {class: 'head'},
+    el('span', {class: 'eyebrow'}, `集計日時 ${D.generated_at}`),
+    el('h1', {}, 'GFS 自己変容・NPS'),
+    el('p', {class: 'lead'}, lead)));
+
+  const tile = (label, value, note) => el('div', {class: 'tile'}, el('span', {class: 'tile-label'}, label), el('span', {class: 'tile-value'}, value), el('span', {class: 'tile-note'}, note));
+  app.append(el('section', {class: 'tiles', 'aria-label': '主要指標'},
+    tile('NPS（推奨者率 − 批判者率）', nps(K.nps), `有効回答 ${cnt(K.nps_n)} 件`),
+    tile('推奨者（9〜10点）', K.promoter_rate == null ? '—' : pct(K.promoter_rate), 'NPS 有効回答に占める割合'),
+    tile('批判者（0〜6点）', K.detractor_rate == null ? '—' : pct(K.detractor_rate), 'NPS 有効回答に占める割合'),
+    tile('変化評価の平均（1〜5）', K.change_mean == null ? '—' : f2(K.change_mean), '5 = 強く変化を感じる'),
+    tile('アンケート回答数', cnt(K.responses), '二重送信の疑いを除く'),
+    tile('アクションリストと紐づく回答', D.linked_responses == null ? '—' : cnt(D.linked_responses), D.action_respondents == null ? '' : `アクション回答者 ${cnt(D.action_respondents)} 人`)));
+
+  // 推移
+  const cNps = el('div', {class: 'chart'}), cChg = el('div', {class: 'chart'});
+  app.append(el('section', {class: 'section'}, el('h2', {}, '週ごとの推移'),
+    el('div', {class: 'grid2'},
+      el('div', {class: 'card'}, el('h3', {}, 'NPS（棒＝その週・線＝累計）'), el('p', {class: 'muted small'}, '回答日で月曜始まりの週に区切っています。薄い棒は有効回答30件未満。'), cNps),
+      el('div', {class: 'card'}, el('h3', {}, '変化評価の平均（1〜5）'), el('p', {class: 'muted small'}, '5 = 強く変化を感じる。'), cChg))));
+
+  // 障壁
+  if (D.tasks.length) {
+    const worst = D.tasks.filter(t => t.cleared_rate != null).reduce((a, b) => b.cleared_rate < a.cleared_rate ? b : a);
+    const tbody = el('tbody');
+    D.tasks.forEach(t => {
+      const fill = el('div', {class: 'fill'}); fill.style.width = (t.done_rate * 100) + '%';
+      tbody.append(el('tr', t === worst ? {class: 'hot'} : {},
+        el('td', {}, String(t.step)), el('td', {}, t.task),
+        el('td', {}, el('div', {class: 'bar'}, el('div', {class: 'track'}, fill), el('span', {class: 'bar-val'}, pct(t.done_rate)))),
+        el('td', {class: 'r'}, cnt(t.stuck_n)),
+        el('td', {class: 'r'}, t.trouble_n == null ? '—' : cnt(t.trouble_n)),
+        el('td', {class: 'r'}, t.cleared_rate == null ? '—' : `${pct(t.cleared_rate)}`)));
+    });
+    app.append(el('section', {class: 'section'}, el('h2', {}, 'どのタスクで止まっているか'),
+      el('p', {}, `アクションリスト回答者それぞれの最新回答で集計。赤い行は、止まった後に自力で先へ進めた割合が最も低いタスク（${worst.task}）です。`),
+      el('div', {class: 'card'}, el('div', {class: 'scroll'}, el('table', {},
+        el('thead', {}, el('tr', {}, el('th', {}, '#'), el('th', {}, 'タスク'), el('th', {}, '達成率'), el('th', {class: 'r'}, 'ここで止まっている人'), el('th', {class: 'r'}, '「わからない・困っている」'), el('th', {class: 'r'}, '止まった後にクリア'))),
+        tbody))),
+      el('p', {class: 'small'}, '「ここで止まっている人」は上から順に見て最初に未達成のタスク。「止まった後にクリア」は2回以上回答した人のうち、最初の回答で止まっていたタスクを後の回答で達成した割合。')));
+  }
+
+  // 段階別
+  const cStg = el('div', {class: 'chart'});
+  if (D.stages.length) app.append(el('section', {class: 'section'}, el('h2', {}, '止まっている段階と NPS・変化の実感'),
+    el('p', {}, 'アンケートとアクションリストを会員IDでつないだ回答で集計（アンケート回答時点までの最新のアクション回答）。'),
+    el('div', {class: 'card'}, el('h3', {}, '段階別の NPS'), el('p', {class: 'muted small'}, '右端が 0。棒が長いほど NPS が低い。薄い棒は有効回答30件未満。'), cStg)));
+
+  // 入金
+  if (D.deposit.length && D.gate.not_deposited != null) {
+    app.append(el('section', {class: 'section'}, el('h2', {}, '入金はその先の売買すべての前提'),
+      el('p', {}, `入金していないアクション回答者 ${cnt(D.gate.not_deposited)} 人のうち、購入・売却を1つでも済ませたのは ${cnt(D.gate.not_deposited_traded)} 人だけです。`),
+      el('div', {class: 'tiles'}, ...D.deposit.map(r => tile(r.group, `NPS ${nps(r.nps)}`, `変化評価 ${r.change_mean == null ? '—' : f2(r.change_mean)}・${cnt(r.people)} 人（NPS 回答 ${r.nps_n}）`)))));
+  }
+
+  // 分類
+  const ctb = el('tbody');
+  D.categories.forEach(c => ctb.append(el('tr', {}, el('td', {}, c.category), el('td', {class: 'r'}, cnt(c.count)), el('td', {class: 'r'}, c.share == null ? '—' : pct(c.share)), el('td', {class: 'r'}, cnt(c.nps_n)), el('td', {class: 'r'}, nps(c.nps)))));
+  app.append(el('section', {class: 'section'}, el('h2', {}, '「変化理由」の分類と NPS'),
+    el('p', {}, '自由記述「変化理由」を、知識・行動・判断・その他（関心・意欲）・分類不可に分類（複数該当あり）。'),
+    el('div', {class: 'card'}, el('div', {class: 'scroll'}, el('table', {},
+      el('thead', {}, el('tr', {}, el('th', {}, '分類'), el('th', {class: 'r'}, '件数'), el('th', {class: 'r'}, '記入ありに占める割合'), el('th', {class: 'r'}, 'NPS 有効回答'), el('th', {class: 'r'}, 'NPS'))), ctb)))));
+
+  app.append(el('footer', {class: 'notes'}, el('ul', {},
+    el('li', {}, 'ここに示す関係は相関（同時に見られる傾向）で、因果関係を示すものではありません。'),
+    el('li', {}, 'NPS は 0〜10 点の有効回答だけを分母にしています。未回答や、設問追加前の回答は 0 点として数えていません。'),
+    el('li', {}, 'このページは集計値だけでできており、会員ID・氏名・自由記述の本文は含みません。'))));
+
+  const draw = () => { drawNps(cNps, D.weekly); drawChange(cChg, D.weekly); if (D.stages.length) drawStages(cStg, D.stages); };
+  draw();
+  let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(draw, 150); });
+}
+
+function tipFor(box) {
+  let t = box.querySelector('.tip');
+  if (!t) { t = el('div', {class: 'tip'}); t.hidden = true; box.append(t); }
+  return {
+    show(evt, lines) {
+      t.replaceChildren(...lines.map((l, i) => el('div', i === 0 ? {class: 'k'} : {}, l)));
+      t.hidden = false;
+      const r = box.getBoundingClientRect(), w = t.offsetWidth, h = t.offsetHeight;
+      let x = evt.clientX - r.left + 12, y = evt.clientY - r.top - h - 8;
+      if (x + w > r.width) x = r.width - w;
+      if (y < 0) y = evt.clientY - r.top + 16;
+      t.style.left = Math.max(0, x) + 'px'; t.style.top = y + 'px';
+    },
+    hide() { t.hidden = true; }
+  };
+}
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function drawNps(box, weekly) {
+  box.querySelectorAll('svg').forEach(s => s.remove());
+  const rows = weekly.filter(r => r.nps_n > 0);
+  const W = box.clientWidth, H = 240, m = {t: 18, r: 12, b: 28, l: 40};
+  const x = d3.scaleBand(rows.map(r => r.week_start), [m.l, W - m.r]).padding(0.35);
+  const y = d3.scaleLinear([-100, 0], [H - m.b, m.t]);
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', '週ごとのNPS');
+  svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', css('--grid'));
+  svg.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('x', m.l - 6).attr('y', d => y(d) + 4).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', css('--muted')).text(d => d);
+  svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', css('--axis'));
+  const t = tipFor(box);
+  svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', r => x(r.week_start)).attr('width', x.bandwidth()).attr('y', y(0)).attr('height', r => y(r.nps) - y(0)).attr('rx', 4)
+    .attr('fill', r => r.nps_n < 30 ? css('--bar-soft') : css('--bar'))
+    .on('mousemove', (e, r) => t.show(e, [wk(r.week_start), `その週の NPS ${nps(r.nps)}（n=${r.nps_n}）`, `累計 NPS ${nps(r.cumulative_nps)}`])).on('mouseleave', () => t.hide());
+  const cx = r => x(r.week_start) + x.bandwidth() / 2;
+  svg.append('path').datum(rows).attr('d', d3.line().x(cx).y(r => y(r.cumulative_nps))).attr('fill', 'none').attr('stroke', css('--accent')).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  svg.append('g').selectAll('circle').data(rows).join('circle').attr('cx', cx).attr('cy', r => y(r.cumulative_nps)).attr('r', 3).attr('fill', css('--accent'));
+  const last = rows[rows.length - 1];
+  if (last) svg.append('text').attr('x', cx(last)).attr('y', y(last.cumulative_nps) - 9).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', css('--accent')).text(`累計 ${nps(last.cumulative_nps)}`);
+  const every = Math.ceil(rows.length / Math.max(1, Math.floor((W - m.l) / 56)));
+  svg.append('g').selectAll('text').data(rows.filter((_, i) => i % every === 0)).join('text').attr('x', cx).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', css('--muted')).text(r => wk(r.week_start));
+}
+
+function drawChange(box, weekly) {
+  box.querySelectorAll('svg').forEach(s => s.remove());
+  const rows = weekly.filter(r => r.change_mean != null);
+  const W = box.clientWidth, H = 240, m = {t: 16, r: 16, b: 28, l: 40};
+  const x = d3.scalePoint(rows.map(r => r.week_start), [m.l + 10, W - m.r - 10]);
+  const y = d3.scaleLinear([1, 5], [H - m.b, m.t]);
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', '週ごとの変化評価の平均');
+  svg.append('g').selectAll('line').data([1, 2, 3, 4, 5]).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', css('--grid'));
+  svg.append('g').selectAll('text').data([1, 2, 3, 4, 5]).join('text').attr('x', m.l - 6).attr('y', d => y(d) + 4).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', css('--muted')).text(d => d);
+  svg.append('path').datum(rows).attr('d', d3.line().x(r => x(r.week_start)).y(r => y(r.change_mean))).attr('fill', 'none').attr('stroke', css('--accent')).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  const t = tipFor(box);
+  svg.append('g').selectAll('circle').data(rows).join('circle').attr('cx', r => x(r.week_start)).attr('cy', r => y(r.change_mean)).attr('r', 4).attr('fill', css('--accent'))
+    .on('mousemove', (e, r) => t.show(e, [wk(r.week_start), `変化評価の平均 ${f2(r.change_mean)}`, `回答 ${cnt(r.survey_n)} 件`])).on('mouseleave', () => t.hide());
+  const every = Math.ceil(rows.length / Math.max(1, Math.floor((W - m.l) / 56)));
+  svg.append('g').selectAll('text').data(rows.filter((_, i) => i % every === 0)).join('text').attr('x', r => x(r.week_start)).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', css('--muted')).text(r => wk(r.week_start));
+}
+
+function drawStages(box, rows) {
+  box.querySelectorAll('svg').forEach(s => s.remove());
+  rows = rows.filter(r => r.nps != null);
+  const W = box.clientWidth, narrow = W < 520;
+  // 広いとき：ラベル左・棒右。狭いとき：ラベルを棒の上に置く
+  const m = narrow ? {t: 4, r: 64, b: 24, l: 0} : {t: 8, r: 64, b: 24, l: Math.min(200, W * 0.38)};
+  const rowH = narrow ? 64 : 46, barH = narrow ? 18 : 26;
+  const H = m.t + rows.length * rowH + m.b;
+  const x = d3.scaleLinear([-100, 0], [m.l, W - m.r]);
+  const top = i => m.t + i * rowH;
+  const barY = i => narrow ? top(i) + 36 : top(i) + (rowH - barH) / 2;
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', '段階別のNPS');
+  svg.append('g').selectAll('line').data([-100, -75, -50, -25, 0]).join('line').attr('x1', d => x(d)).attr('x2', d => x(d)).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', d => d === 0 ? css('--axis') : css('--grid'));
+  svg.append('g').selectAll('text').data([-100, -50, 0]).join('text').attr('x', d => x(d)).attr('y', H - 6).attr('text-anchor', d => d === -100 && narrow ? 'start' : 'middle').attr('font-size', 11).attr('fill', css('--muted')).text(d => d);
+  const t = tipFor(box);
+  const best = d3.max(rows, r => r.nps);
+  const g = svg.append('g').selectAll('g').data(rows).join('g');
+  if (narrow) {
+    g.append('text').attr('x', 0).attr('y', (r, i) => top(i) + 15).attr('font-size', 12.5).attr('fill', css('--fg')).text(r => r.stage);
+    g.append('text').attr('x', 0).attr('y', (r, i) => top(i) + 30).attr('font-size', 11).attr('fill', css('--muted')).text(r => `変化評価 ${r.change_mean == null ? '—' : f2(r.change_mean)}`);
+  } else {
+    g.append('text').attr('x', 0).attr('y', (r, i) => top(i) + rowH / 2 - 2).attr('font-size', 12.5).attr('fill', css('--fg')).text(r => r.stage);
+    g.append('text').attr('x', 0).attr('y', (r, i) => top(i) + rowH / 2 + 14).attr('font-size', 11).attr('fill', css('--muted')).text(r => `変化評価 ${r.change_mean == null ? '—' : f2(r.change_mean)}`);
+  }
+  g.append('rect').attr('x', r => x(r.nps)).attr('width', r => x(0) - x(r.nps)).attr('y', (r, i) => barY(i)).attr('height', barH).attr('rx', 4)
+    .attr('fill', r => r.nps === best ? css('--accent') : (r.nps_n < 30 ? css('--bar-soft') : css('--bar')))
+    .on('mousemove', (e, r) => t.show(e, [r.stage, `NPS ${nps(r.nps)}（n=${r.nps_n}）`, `変化評価 ${r.change_mean == null ? '—' : f2(r.change_mean)}`, `${cnt(r.people)} 人`])).on('mouseleave', () => t.hide());
+  g.append('text').attr('x', W - m.r + 8).attr('y', (r, i) => barY(i) + barH / 2 + 1).attr('font-size', 12).attr('fill', css('--fg')).text(r => nps(r.nps));
+  g.append('text').attr('x', W - m.r + 8).attr('y', (r, i) => barY(i) + barH / 2 + 14).attr('font-size', 10.5).attr('fill', css('--muted')).text(r => `n=${r.nps_n}`);
+}
+</script>
+</body>
+</html>

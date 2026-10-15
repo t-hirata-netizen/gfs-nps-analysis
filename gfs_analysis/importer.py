@@ -34,7 +34,8 @@ def detect_kind(name: str, data: bytes) -> str:
     return UNKNOWN
 
 
-def import_many(conn: sqlite3.Connection, files: List[Tuple[str, bytes]]) -> pd.DataFrame:
+def import_many(conn: sqlite3.Connection, files: List[Tuple[str, bytes]],
+                user: Optional[str] = None) -> pd.DataFrame:
     """files: [(ファイル名, 中身)]。1ファイルずつ結果を返す（失敗しても他は続ける）。"""
     tagged = [(detect_kind(n, d), n, d) for n, d in files]
     tagged.sort(key=lambda t: ORDER.index(t[0]) if t[0] in ORDER else len(ORDER))
@@ -43,15 +44,15 @@ def import_many(conn: sqlite3.Connection, files: List[Tuple[str, bytes]]) -> pd.
         status, detail = "取込完了", ""
         try:
             if kind == SURVEY:
-                r = ingest.import_survey_bytes(conn, data, name)
+                r = ingest.import_survey_bytes(conn, data, name, user=user)
                 n_class = classify.auto_classify(conn)
                 detail = (f"新規 {r.inserted:,} 件（既存 {r.skipped_existing:,} 件はスキップ）"
                           f"／注意事項 {r.issue_count:,} 件／変化理由の自動分類 {n_class:,} 件")
             elif kind == ACTION:
-                r = actions.import_actions(conn, data, name)
+                r = actions.import_actions(conn, data, name, user=user)
                 detail = f"新規 {r['新規保存']:,} 件（既存 {r['取込済みのためスキップ']:,} 件はスキップ）"
             elif kind == LINK:
-                r = actions.import_id_links(conn, data, name)
+                r = actions.import_id_links(conn, data, name, user=user)
                 detail = f"対応付け {r['対応付け']:,} 件／会員IDが変わった {r['会員IDが変わった']:,} 件"
             else:
                 status, detail = "スキップ", "種類を判別できませんでした（列名・シート名を確認してください）"

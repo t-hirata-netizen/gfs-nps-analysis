@@ -14,3 +14,14 @@ output/
 __pycache__/
 .pytest_cache/
 .DS_Store
+
+# 公開用ダッシュボードの書き出し先（公開は別リポジトリ）
+site/
+
+# クラウドの設定（プロジェクトID など）
+deploy/config.sh
+
+# Streamlit のシークレット（サービスアカウントの鍵など）
+.streamlit/secrets.toml
+*.json.key
+service-account*.json

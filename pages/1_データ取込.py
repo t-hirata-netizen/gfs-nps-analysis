@@ -2,10 +2,13 @@ from pathlib import Path
 
 import streamlit as st
 
-from gfs_analysis import actions, classify, db, importer, ingest, ui
+from gfs_analysis import actions, classify, cloud, db, importer, ingest, ui
 
 ui.setup("データ取込")
 conn = db.connect()
+user = ui.current_user()
+if user:
+    st.caption(f"ログイン中：{user}（取込履歴に記録されます）")
 
 BULK = "まとめて取込（毎日の作業）"
 SURVEY = "60日アンケート（Excel）"
@@ -24,7 +27,8 @@ if kind == BULK:
         files = [(u.name, u.getvalue()) for u in ups]
         ui.show_table([{"ファイル": n, "判別した種類": importer.detect_kind(n, d)} for n, d in files])
         if st.button("まとめて取り込む", type="primary"):
-            res = importer.import_many(conn, files)
+            res = importer.import_many(conn, files, user=user)
+            ui.save_changes(conn)
             ui.show_table(res)
             if (res["結果"] == "エラー").any():
                 st.error("取り込めなかったファイルがあります。内容を確認してください。")
@@ -38,7 +42,8 @@ if kind == BULK:
             {"survey60": "60日アンケート", "action_list": "アクションリスト", "id_link": "ID対応表"})
         ui.show_table(batches.drop(columns=["file_sha256", "sheet_name"]).rename(columns={
             "batch_id": "取込ID", "source_type": "種類", "file_name": "ファイル名", "row_count": "行数",
-            "inserted_count": "新規保存", "skipped_count": "スキップ", "imported_at": "取込日時"}))
+            "inserted_count": "新規保存", "skipped_count": "スキップ", "imported_at": "取込日時",
+            "imported_by": "取り込んだ人"}))
     st.stop()
 
 if kind == SURVEY:
@@ -57,20 +62,26 @@ else:
     exts = ["csv"]
 st.caption("元ファイルは読み取るだけで、変更しません。")
 
-tab_upload, tab_path = st.tabs(["ファイルを選ぶ", "パスを入力する"])
 data, name = None, None
-with tab_upload:
+if cloud.enabled():
+    # クラウドではサーバー上のファイルは読めないので、アップロードのみ
     up = st.file_uploader("ファイル", type=exts, key=f"up_{kind}")
     if up is not None:
         data, name = up.getvalue(), up.name
-with tab_path:
-    p = st.text_input("ファイルのパス", key=f"path_{kind}", placeholder="/Users/…/Downloads/…")
-    if p:
-        path = Path(p.strip().strip("'\"")).expanduser()
-        if path.is_file():
-            data, name = path.read_bytes(), path.name
-        else:
-            st.error("ファイルが見つかりません。")
+else:
+    tab_upload, tab_path = st.tabs(["ファイルを選ぶ", "パスを入力する"])
+    with tab_upload:
+        up = st.file_uploader("ファイル", type=exts, key=f"up_{kind}")
+        if up is not None:
+            data, name = up.getvalue(), up.name
+    with tab_path:
+        p = st.text_input("ファイルのパス", key=f"path_{kind}", placeholder="/Users/…/Downloads/…")
+        if p:
+            path = Path(p.strip().strip("'\"")).expanduser()
+            if path.is_file():
+                data, name = path.read_bytes(), path.name
+            else:
+                st.error("ファイルが見つかりません。")
 
 if data is not None:
     try:
@@ -95,16 +106,16 @@ if data is not None:
     if st.button("取り込む", type="primary"):
         try:
             if kind == SURVEY:
-                r = ingest.import_survey_bytes(conn, data, name, mapping)
+                r = ingest.import_survey_bytes(conn, data, name, mapping, user=user)
                 res = {"ファイルの行数": r.row_count, "新規保存": r.inserted,
                        "取込済みのためスキップ": r.skipped_existing,
                        "ファイル内の同一行（スキップ）": r.skipped_in_file_dup,
                        "会員ID・日時の不備（スキップ）": r.skipped_invalid,
                        "記録した注意事項（不正値など）": r.issue_count}
             elif kind == ACTION:
-                res = actions.import_actions(conn, data, name, mapping)
+                res = actions.import_actions(conn, data, name, mapping, user=user)
             else:
-                res = actions.import_id_links(conn, data, name, mapping)
+                res = actions.import_id_links(conn, data, name, mapping, user=user)
         except ingest.DuplicateImportError as e:
             st.warning(str(e))
         else:
@@ -114,6 +125,7 @@ if data is not None:
             if auto:
                 n = classify.auto_classify(conn)
                 st.info(f"変化理由 {n:,} 件に自動分類の案を付けました（人が修正したものは上書きしていません）。")
+            ui.save_changes(conn)
 
 st.divider()
 st.subheader("取込履歴")
@@ -126,4 +138,5 @@ else:
     ui.show_table(batches.drop(columns=["file_sha256"]).rename(columns={
         "batch_id": "取込ID", "source_type": "種類", "file_name": "ファイル名",
         "sheet_name": "シート", "row_count": "行数",
-        "inserted_count": "新規保存", "skipped_count": "スキップ", "imported_at": "取込日時"}))
+        "inserted_count": "新規保存", "skipped_count": "スキップ", "imported_at": "取込日時",
+            "imported_by": "取り込んだ人"}))

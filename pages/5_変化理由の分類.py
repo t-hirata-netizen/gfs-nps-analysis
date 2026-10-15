@@ -21,6 +21,7 @@ st.markdown(
 c1, c2 = st.columns([1, 3])
 if c1.button("自動分類を実行"):
     n = classify.auto_classify(conn)
+    ui.save_changes(conn)
     st.success(f"{n:,} 件に分類案を付けました（確認済みのものは変更していません）。")
     st.rerun()
 
@@ -70,7 +71,8 @@ if save_changed or confirm_all:
     records = [{"response_id": int(r["回答ID"]), **{c: int(r[labels[c]]) for c in m.CATEGORY_COLS}}
                for _, r in target.iterrows()]
     try:
-        n = classify.save_manual(conn, records)
+        n = classify.save_manual(conn, records, user=ui.current_user())
+        ui.save_changes(conn)
     except ValueError as e:
         st.error("保存できませんでした。\n\n" + str(e))
     else:
