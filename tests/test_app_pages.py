@@ -22,10 +22,16 @@ def sample_db(tmp_path, monkeypatch):
     return path
 
 
+def no_deprecation_banner(at):
+    texts = [w.value for w in at.warning]
+    assert not any("deprecated" in t for t in texts), texts
+
+
 @pytest.mark.parametrize("page", PAGES)
 def test_page_runs_with_data(sample_db, page):
     at = AppTest.from_file(str(ROOT / page), default_timeout=30).run()
     assert not at.exception, [e.value for e in at.exception]
+    no_deprecation_banner(at)
 
 
 @pytest.mark.parametrize("page", PAGES)
@@ -69,10 +75,12 @@ def sample_db_with_actions(tmp_path, monkeypatch):
     return path
 
 
-@pytest.mark.parametrize("page", ["pages/7_アクション×NPS.py", "pages/6_Excel出力.py", "pages/1_データ取込.py"])
+@pytest.mark.parametrize("page", ["pages/7_アクション×NPS.py", "pages/6_Excel出力.py", "pages/1_データ取込.py",
+                                  "pages/8_推移.py", "pages/4_クロス集計.py"])
 def test_action_pages(sample_db_with_actions, page):
     at = AppTest.from_file(str(ROOT / page), default_timeout=30).run()
     assert not at.exception, [e.value for e in at.exception]
+    no_deprecation_banner(at)
     if page.startswith("pages/7"):
         at.radio[0].set_value("最新の回答（アンケート後を含む）").run()
         assert not at.exception

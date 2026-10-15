@@ -181,7 +181,7 @@ def bar(dist: pd.DataFrame, title: str, colors: Dict[str, str] = None, color_col
     fig.update_layout(height=360, margin=dict(t=50, b=10), xaxis_title=None, barmode="relative",
                       yaxis_title="件数", showlegend=False)
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig)
 
 
 def correlation_note():

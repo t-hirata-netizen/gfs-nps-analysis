@@ -38,7 +38,7 @@ fig = px.bar(plot, x="グループ", y="NPS", text=plot.apply(lambda r: f"{r['NP
              title=f"{g_name}別の NPS")
 fig.update_xaxes(type="category")
 fig.update_layout(height=360, margin=dict(t=50, b=10), xaxis_title=None)
-st.plotly_chart(fig, width="stretch")
+st.plotly_chart(fig)
 ui.show_table(table)
 small = table[(table["注意"] != "") & (table["NPS有効回答数"] > 0)]
 if not small.empty:

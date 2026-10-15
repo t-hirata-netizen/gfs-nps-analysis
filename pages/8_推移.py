@@ -64,7 +64,7 @@ with st.expander("グラフで見る"):
     fig.update_layout(title="NPS の推移（灰色の棒は有効回答30件未満）", height=420, margin=dict(t=50, b=10),
                       legend=dict(orientation="h", y=-0.15), yaxis_title="NPS", yaxis_range=[-110, 15])
     fig.update_xaxes(type="category", categoryorder="array", categoryarray=cum["期間ラベル"])
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig)
 
     v = t[t["変化評価の平均"].notna()]
     fig = px.line(v, x="期間ラベル", y="変化評価の平均", markers=True, text=v["変化評価の平均"].map(lambda x: f"{x:.2f}"),
@@ -72,7 +72,7 @@ with st.expander("グラフで見る"):
     fig.update_traces(textposition="top center")
     fig.update_layout(height=320, margin=dict(t=50, b=10), yaxis_range=[1, 5.3], xaxis_title=None)
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig)
 
     if not snaps.empty:
         at = trends.action_trend(snaps, freq, tasks)
@@ -81,6 +81,6 @@ with st.expander("グラフで見る"):
         fig.update_traces(textposition="top center")
         fig.update_layout(height=320, margin=dict(t=50, b=10), xaxis_title=None, yaxis_range=[0, len(tasks)])
         fig.update_xaxes(type="category")
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig)
 
 st.caption(m.CORRELATION_NOTE)
